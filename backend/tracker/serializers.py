@@ -1,7 +1,7 @@
-from django.db.models import Max
 from rest_framework import serializers
 
 from .colors import palette_name_for, resolve_label_color
+from .services import next_issue_number
 from .models import (
     Activity,
     Area,
@@ -377,8 +377,7 @@ class IssueSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         label_ids = validated_data.pop('label_ids', [])
         project = validated_data['project']
-        last_number = Issue.objects.filter(project=project).aggregate(highest=Max('number'))['highest'] or 0
-        validated_data['number'] = last_number + 1
+        validated_data['number'] = next_issue_number(project)
         validated_data['reporter'] = self.context['request'].user
         issue = Issue.objects.create(**validated_data)
         if label_ids:
