@@ -372,6 +372,14 @@ class DashboardView(APIView):
             {'severity': value, 'label': label, 'count': severity_rows.get(value, 0)}
             for value, label in Issue.Severity.choices
         ]
+        open_owned = owned.filter(status__in=OPEN_STATUSES)
+        open_severity_rows = {
+            row['severity']: row['total'] for row in open_owned.values('severity').annotate(total=Count('id'))
+        }
+        open_by_severity = [
+            {'severity': value, 'label': label, 'count': open_severity_rows.get(value, 0)}
+            for value, label in Issue.Severity.choices
+        ]
         recent_queryset = (
             owned.select_related('project', 'milestone', 'area', 'reporter')
             .prefetch_related('labels')
@@ -386,6 +394,7 @@ class DashboardView(APIView):
         return Response({
             'counts': counts,
             'by_severity': by_severity,
+            'open_by_severity': open_by_severity,
             'recent_issues': IssueSerializer(recent_queryset, many=True, context={'request': request}).data,
             'recent_activity': ActivitySerializer(recent_activity, many=True).data,
         })
