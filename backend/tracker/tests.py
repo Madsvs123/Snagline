@@ -1,4 +1,7 @@
+from io import StringIO
+
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from rest_framework.test import APITestCase
 
 from tracker.models import Activity, Comment, Issue, Label, Project
@@ -158,3 +161,217 @@ class IssueWorkflowTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get('/api/issues/')
         self.assertEqual(response.status_code, 401)
+
+
+class TrackerFeatureTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('owner', 'owner@example.com', 'Snagline-pass-1')
+        self.project = Project.objects.create(owner=self.user, name='Editor', key='EDIT')
+        self.client.force_authenticate(self.user)
+
+    def _issue(self, title, **extra):
+        payload = {
+            'project': self.project.id,
+            'title': title,
+            'body': extra.pop('body', ''),
+            'severity': extra.pop('severity', 'medium'),
+        }
+        payload.update(extra)
+        response = self.client.post('/api/issues/', payload, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        return response
+
+    def test_area_can_be_attached_to_an_issue(self):
+        area = self.client.post(
+            '/api/areas/',
+            {'project': self.project.id, 'name': 'Editor', 'description': 'Drafts'},
+            format='json',
+        )
+        self.assertEqual(area.status_code, 201, area.data)
+        issue = self._issue('Caret jumps', area=area.data['id'])
+        self.assertEqual(issue.data['area_name'], 'Editor')
+        listed = self.client.get('/api/issues/', {'area': area.data['id']})
+        self.assertEqual(listed.data['count'], 1)
+
+    def test_links_blocks_relates_and_owner_scope(self):
+        first = self._issue('Save drops the draft')
+        second = self._issue('Reload loses the caret')
+        blocked = self.client.post(
+            '/api/issue-links/',
+            {'source': first.data['id'], 'target': second.data['id'], 'kind': 'blocks'},
+            format='json',
+        )
+        self.assertEqual(blocked.status_code, 201, blocked.data)
+        self.assertEqual(blocked.data['source_key'], 'EDIT-1')
+        self.assertEqual(blocked.data['target_key'], 'EDIT-2')
+        related = self.client.post(
+            '/api/issue-links/',
+            {'source': second.data['id'], 'target': first.data['id'], 'kind': 'relates'},
+            format='json',
+        )
+        self.assertEqual(related.status_code, 201, related.data)
+        self_link = self.client.post(
+            '/api/issue-links/',
+            {'source': first.data['id'], 'target': first.data['id'], 'kind': 'relates'},
+            format='json',
+        )
+        self.assertEqual(self_link.status_code, 400)
+        duplicate = self.client.post(
+            '/api/issue-links/',
+            {'source': first.data['id'], 'target': second.data['id'], 'kind': 'blocks'},
+            format='json',
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        listed = self.client.get('/api/issue-links/', {'issue': second.data['id']})
+        self.assertEqual(listed.data['count'], 2)
+        self.assertTrue(Activity.objects.filter(issue_id=first.data['id'], kind='linked').exists())
+
+        other = User.objects.create_user('other', 'other@example.com', 'Snagline-pass-1')
+        self.client.force_authenticate(other)
+        self.assertEqual(self.client.get('/api/issue-links/').data['count'], 0)
+        denied = self.client.post(
+            '/api/issue-links/',
+            {'source': first.data['id'], 'target': second.data['id'], 'kind': 'relates'},
+            format='json',
+        )
+        self.assertEqual(denied.status_code, 400)
+
+    def test_templates_are_scoped_to_the_owner(self):
+        created = self.client.post(
+            '/api/issue-templates/',
+            {
+                'project': self.project.id,
+                'name': 'Crash',
+                'title': 'App closes unexpectedly',
+                'body': 'Steps',
+                'severity': 'high',
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        listed = self.client.get('/api/issue-templates/', {'project': self.project.id})
+        self.assertEqual(listed.data['count'], 1)
+        self.assertEqual(listed.data['results'][0]['title'], 'App closes unexpectedly')
+        other = User.objects.create_user('other', 'other@example.com', 'Snagline-pass-1')
+        self.client.force_authenticate(other)
+        self.assertEqual(self.client.get('/api/issue-templates/').data['count'], 0)
+        self.assertEqual(self.client.get(f"/api/issue-templates/{created.data['id']}/").status_code, 404)
+
+    def test_bulk_status_updates_only_owned_issues(self):
+        first = self._issue('First defect')
+        second = self._issue('Second defect')
+        other = User.objects.create_user('other', 'other@example.com', 'Snagline-pass-1')
+        other_project = Project.objects.create(owner=other, name='Other', key='OTHR')
+        foreign = Issue.objects.create(
+            project=other_project,
+            number=1,
+            title='Foreign defect',
+            reporter=other,
+            status='open',
+        )
+        response = self.client.post(
+            '/api/issues/bulk-status/',
+            {'ids': [first.data['id'], second.data['id'], foreign.id], 'status': 'resolved'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertCountEqual(response.data['updated'], [first.data['id'], second.data['id']])
+        self.assertEqual(Issue.objects.get(pk=first.data['id']).status, 'resolved')
+        self.assertEqual(Issue.objects.get(pk=foreign.id).status, 'open')
+        self.assertTrue(Activity.objects.filter(issue_id=second.data['id'], kind='status_changed').exists())
+        empty = self.client.post('/api/issues/bulk-status/', {'ids': [], 'status': 'open'}, format='json')
+        self.assertEqual(empty.status_code, 400)
+
+    def test_saved_filter_comment_edit_search_and_csv(self):
+        issue = self._issue('Save drops the draft', body='The textarea clears.')
+        saved = self.client.post(
+            '/api/saved-filters/',
+            {'name': 'Open editor', 'search': 'textarea', 'status': 'open', 'project': self.project.id},
+            format='json',
+        )
+        self.assertEqual(saved.status_code, 201, saved.data)
+        comment = self.client.post(
+            '/api/comments/',
+            {'issue': issue.data['id'], 'body': 'Seen on the nightly build.'},
+            format='json',
+        )
+        edited = self.client.patch(
+            f"/api/comments/{comment.data['id']}/",
+            {'body': 'Seen on the nightly build only.'},
+            format='json',
+        )
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertIsNotNone(edited.data['edited_at'])
+        self.assertEqual(Comment.objects.get(pk=comment.data['id']).body, 'Seen on the nightly build only.')
+        self.assertTrue(Activity.objects.filter(kind='comment_edited').exists())
+        self.assertEqual(self.client.get('/api/issues/', {'search': 'clears'}).data['count'], 1)
+        self.assertEqual(self.client.get('/api/issues/', {'search': 'nightly'}).data['count'], 1)
+        self.assertEqual(self.client.get('/api/issues/', {'search': 'EDIT-1'}).data['count'], 1)
+        export = self.client.get('/api/issues/export/', {'status': 'open'})
+        self.assertEqual(export.status_code, 200)
+        self.assertIn('text/csv', export['Content-Type'])
+        self.assertIn('EDIT-1', export.content.decode())
+        self.assertIn('textarea clears', export.content.decode())
+
+    def test_duplicate_title_warning_and_milestone_progress(self):
+        milestone = self.client.post(
+            '/api/milestones/',
+            {'project': self.project.id, 'name': 'Fixes'},
+            format='json',
+        )
+        self.assertEqual(milestone.status_code, 201, milestone.data)
+        first = self._issue('Same title', milestone=milestone.data['id'], status='resolved')
+        second = self._issue('Same title', milestone=milestone.data['id'])
+        self.assertTrue(second.data['has_duplicate_title'])
+        self.assertEqual(second.data['duplicate_titles'][0]['id'], first.data['id'])
+        check = self.client.get('/api/issues/title-check/', {'project': self.project.id, 'title': 'Same title'})
+        self.assertEqual(check.status_code, 200)
+        self.assertEqual(len(check.data['matches']), 2)
+        detail = self.client.get(f"/api/milestones/{milestone.data['id']}/")
+        self.assertEqual(detail.data['total_issue_count'], 2)
+        self.assertEqual(detail.data['done_issue_count'], 1)
+        self.assertEqual(detail.data['progress_percent'], 50)
+        self.assertEqual(detail.data['open_issue_count'], 1)
+
+    def test_label_palette_and_issue_command(self):
+        palette = self.client.get('/api/label-palette/')
+        self.assertEqual(palette.status_code, 200)
+        self.assertTrue(any(item['name'] == 'clay' for item in palette.data['colors']))
+        label = self.client.post(
+            '/api/labels/',
+            {'project': self.project.id, 'name': 'blocker', 'color': 'wine'},
+            format='json',
+        )
+        self.assertEqual(label.status_code, 201, label.data)
+        self.assertEqual(label.data['color'], '#8c2f39')
+        self.assertEqual(label.data['palette_name'], 'wine')
+        self.assertEqual(Label.objects.get(pk=label.data['id']).color, '#8c2f39')
+        output = StringIO()
+        call_command(
+            'issue',
+            'CLI filed defect',
+            '--project',
+            'EDIT',
+            '--owner',
+            'owner',
+            '--severity',
+            'high',
+            '--body',
+            'Filed from the shell.',
+            stdout=output,
+        )
+        self.assertIn('EDIT-', output.getvalue())
+        created = Issue.objects.get(title='CLI filed defect')
+        self.assertEqual(created.severity, 'high')
+        self.assertEqual(created.body, 'Filed from the shell.')
+        self.assertTrue(Activity.objects.filter(issue=created, kind='created').exists())
+
+    def test_dashboard_counts_open_issues_by_severity(self):
+        self._issue('Still open', severity='critical')
+        self._issue('Already done', severity='critical', status='closed')
+        dashboard = self.client.get('/api/dashboard/')
+        self.assertEqual(dashboard.status_code, 200)
+        critical_open = next(row for row in dashboard.data['open_by_severity'] if row['severity'] == 'critical')
+        critical_all = next(row for row in dashboard.data['by_severity'] if row['severity'] == 'critical')
+        self.assertEqual(critical_open['count'], 1)
+        self.assertEqual(critical_all['count'], 2)
