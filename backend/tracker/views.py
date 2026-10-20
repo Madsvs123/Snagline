@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -93,11 +93,18 @@ class IssueViewSet(viewsets.ModelViewSet):
     ordering = ['-updated_at']
 
     def get_queryset(self):
+        same_title = Issue.objects.filter(
+            project_id=OuterRef('project_id'),
+            title__iexact=OuterRef('title'),
+        ).exclude(pk=OuterRef('pk'))
         return (
             Issue.objects.filter(project__owner=self.request.user)
             .select_related('project', 'milestone', 'area', 'reporter')
             .prefetch_related('labels')
-            .annotate(comment_count=Count('comments', distinct=True))
+            .annotate(
+                comment_count=Count('comments', distinct=True),
+                has_duplicate_title=Exists(same_title),
+            )
             .distinct()
         )
 
@@ -162,6 +169,31 @@ class IssueViewSet(viewsets.ModelViewSet):
             )
             updated.append(issue.id)
         return Response({'updated': updated, 'status': status})
+
+    @action(detail=False, methods=['get'], url_path='title-check')
+    def title_check(self, request):
+        raw_project = request.query_params.get('project')
+        title = (request.query_params.get('title') or '').strip()
+        if not raw_project or len(title) < 3:
+            return Response({'matches': []})
+        try:
+            project_id = int(raw_project)
+        except (TypeError, ValueError):
+            return Response({'matches': []})
+        matches = self.get_queryset().filter(project_id=project_id, title__iexact=title)
+        exclude = request.query_params.get('exclude')
+        if exclude:
+            matches = matches.exclude(pk=exclude)
+        payload = [
+            {
+                'id': issue.id,
+                'number': issue.number,
+                'title': issue.title,
+                'project_key': issue.project.key,
+            }
+            for issue in matches.order_by('number')[:8]
+        ]
+        return Response({'matches': payload})
 
 
 class IssueLinkViewSet(viewsets.ModelViewSet):

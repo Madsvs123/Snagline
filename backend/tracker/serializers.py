@@ -262,6 +262,8 @@ class IssueSerializer(serializers.ModelSerializer):
     area_name = serializers.SerializerMethodField()
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
     comment_count = serializers.SerializerMethodField()
+    has_duplicate_title = serializers.SerializerMethodField()
+    duplicate_titles = serializers.SerializerMethodField()
 
     class Meta:
         model = Issue
@@ -283,6 +285,8 @@ class IssueSerializer(serializers.ModelSerializer):
             'label_ids',
             'reporter_name',
             'comment_count',
+            'has_duplicate_title',
+            'duplicate_titles',
             'created_at',
             'updated_at',
         ]
@@ -320,6 +324,28 @@ class IssueSerializer(serializers.ModelSerializer):
         if annotated is not None:
             return annotated
         return obj.comments.count()
+
+    def get_has_duplicate_title(self, obj):
+        annotated = _annotated(obj, 'has_duplicate_title')
+        if annotated is not None:
+            return annotated
+        return Issue.objects.filter(project_id=obj.project_id, title__iexact=obj.title).exclude(pk=obj.pk).exists()
+
+    def get_duplicate_titles(self, obj):
+        view = self.context.get('view')
+        action = getattr(view, 'action', None)
+        if action not in {None, 'retrieve', 'create', 'update', 'partial_update'}:
+            return []
+        matches = (
+            Issue.objects.filter(project_id=obj.project_id, title__iexact=obj.title)
+            .exclude(pk=obj.pk)
+            .select_related('project')
+            .order_by('number')[:8]
+        )
+        return [
+            {'id': match.id, 'number': match.number, 'title': match.title, 'project_key': match.project.key}
+            for match in matches
+        ]
 
     def validate_title(self, value):
         value = value.strip()
