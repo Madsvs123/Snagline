@@ -23,6 +23,14 @@ export type Project = {
   created_at: string
 }
 
+export type Area = {
+  id: number
+  project: number
+  project_key: string
+  name: string
+  description: string
+}
+
 export type Label = {
   id: number
   project: number
@@ -61,6 +69,8 @@ export type Issue = {
   project_key: string
   milestone: number | null
   milestone_name: string | null
+  area: number | null
+  area_name: string | null
   labels: IssueLabel[]
   reporter_name: string
   comment_count: number
@@ -75,6 +85,7 @@ export type IssueWrite = {
   severity?: Severity
   project?: number
   milestone?: number | null
+  area?: number | null
   label_ids?: number[]
 }
 
@@ -121,4 +132,5 @@ export type IssueFilters = {
   project?: string
   milestone?: string
   label?: string
+  area?: string
 }

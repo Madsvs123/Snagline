@@ -7,6 +7,7 @@ import type {
   Issue,
   IssueFilters,
   IssueWrite,
+  Area,
   Label,
   Milestone,
   Page,
@@ -47,6 +48,15 @@ export async function fetchProject(id: number): Promise<Project> {
 
 export async function createProject(payload: { name: string; key?: string; description?: string }): Promise<Project> {
   const { data } = await api.post<Project>('/projects/', payload)
+  return data
+}
+
+export async function fetchAreas(project?: string): Promise<Area[]> {
+  return fetchList<Area>('/areas/', { project })
+}
+
+export async function createArea(payload: { project: number; name: string; description?: string }): Promise<Area> {
+  const { data } = await api.post<Area>('/areas/', payload)
   return data
 }
 

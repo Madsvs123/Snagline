@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { errorMessage } from '../api/client'
-import { createIssue, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
+import { createIssue, fetchAreas, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
 import type { Status, Severity } from '../api/types'
 import { Field } from '../components/Field'
 import { PageHeader } from '../components/PageHeader'
@@ -19,6 +19,7 @@ const schema = z.object({
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   project: z.string().min(1, 'Choose a project'),
   milestone: z.string(),
+  area: z.string(),
   label_ids: z.array(z.string()).optional(),
 })
 
@@ -30,6 +31,7 @@ export function NewIssuePage() {
   const [formError, setFormError] = useState<string | null>(null)
   const projects = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
   const labels = useQuery({ queryKey: ['labels'], queryFn: () => fetchLabels() })
+  const areas = useQuery({ queryKey: ['areas'], queryFn: () => fetchAreas() })
   const milestones = useQuery({ queryKey: ['milestones'], queryFn: () => fetchMilestones() })
   const form = useForm<IssueFormValues>({
     resolver: zodResolver(schema),
@@ -40,6 +42,7 @@ export function NewIssuePage() {
       severity: 'medium',
       project: '',
       milestone: '',
+      area: '',
       label_ids: [],
     },
   })
@@ -56,6 +59,7 @@ export function NewIssuePage() {
     if (previousProject.current !== projectId) {
       form.setValue('label_ids', [])
       form.setValue('milestone', '')
+      form.setValue('area', '')
       previousProject.current = projectId
     }
   }, [projectId, form])
@@ -72,6 +76,7 @@ export function NewIssuePage() {
   })
 
   const projectLabels = (labels.data ?? []).filter((label) => String(label.project) === projectId)
+  const projectAreas = (areas.data ?? []).filter((item) => String(item.project) === projectId)
   const projectMilestones = (milestones.data ?? []).filter(
     (milestone) => String(milestone.project) === projectId && !milestone.closed,
   )
@@ -93,6 +98,7 @@ export function NewIssuePage() {
             severity: values.severity as Severity,
             project: Number(values.project),
             milestone: values.milestone ? Number(values.milestone) : null,
+            area: values.area ? Number(values.area) : null,
             label_ids: selected,
           })
         })}
@@ -111,6 +117,16 @@ export function NewIssuePage() {
             {(projects.data ?? []).map((project) => (
               <option key={project.id} value={project.id}>
                 {project.key} · {project.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Area" error={form.formState.errors.area?.message}>
+          <select {...form.register('area')}>
+            <option value="">No area</option>
+            {projectAreas.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </select>

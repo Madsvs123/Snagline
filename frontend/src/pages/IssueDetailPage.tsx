@@ -14,6 +14,7 @@ import {
   fetchActivity,
   fetchComments,
   fetchIssue,
+  fetchAreas,
   fetchMilestones,
   updateIssue,
 } from '../api/queries'
@@ -58,6 +59,11 @@ export function IssueDetailPage() {
     queryFn: () => fetchMilestones(String(projectId)),
     enabled: projectId !== undefined,
   })
+  const areas = useQuery({
+    queryKey: ['areas', projectId],
+    queryFn: () => fetchAreas(String(projectId)),
+    enabled: projectId !== undefined,
+  })
   const form = useForm<CommentValues>({
     resolver: zodResolver(commentSchema),
     defaultValues: { body: '' },
@@ -73,7 +79,8 @@ export function IssueDetailPage() {
   }
 
   const update = useMutation({
-    mutationFn: (payload: { status?: Status; severity?: Severity; milestone?: number | null }) => updateIssue(id, payload),
+    mutationFn: (payload: { status?: Status; severity?: Severity; milestone?: number | null; area?: number | null }) =>
+      updateIssue(id, payload),
     onSuccess: refreshIssue,
   })
   const comment = useMutation({
@@ -146,6 +153,7 @@ export function IssueDetailPage() {
               <StatusBadge status={issue.status} />
               <SeverityBadge severity={issue.severity} />
               <Link to={`/projects/${issue.project}`}>{issue.project_name}</Link>
+              {issue.area_name ? <span className="muted">{issue.area_name}</span> : null}
               {issue.milestone_name ? <span className="muted">{issue.milestone_name}</span> : null}
             </div>
             <div className="chip-row">
@@ -220,6 +228,21 @@ export function IssueDetailPage() {
                 {SEVERITIES.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Area</span>
+              <select
+                value={issue.area ?? ''}
+                onChange={(event) => update.mutate({ area: event.target.value ? Number(event.target.value) : null })}
+                disabled={update.isPending}
+              >
+                <option value="">No area</option>
+                {(areas.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </select>

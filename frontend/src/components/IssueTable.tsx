@@ -48,6 +48,11 @@ export function IssueTable({ issues }: { issues: Issue[] }) {
         ),
       },
       {
+        id: 'area',
+        header: 'Area',
+        cell: ({ row }) => row.original.area_name ?? <span className="muted">None</span>,
+      },
+      {
         id: 'milestone',
         header: 'Milestone',
         cell: ({ row }) => row.original.milestone_name ?? <span className="muted">None</span>,

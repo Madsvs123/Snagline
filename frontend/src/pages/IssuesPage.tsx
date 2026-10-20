@@ -3,7 +3,7 @@ import { Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import { fetchIssues, fetchProjects } from '../api/queries'
+import { fetchAreas, fetchIssues, fetchProjects } from '../api/queries'
 import { IssueTable } from '../components/IssueTable'
 import { PageHeader } from '../components/PageHeader'
 import { QueryNotice } from '../components/QueryNotice'
@@ -17,11 +17,13 @@ export function IssuesPage() {
   const [status, setStatus] = useState(params.get('status') ?? '')
   const [severity, setSeverity] = useState('')
   const [project, setProject] = useState(params.get('project') ?? '')
+  const [area, setArea] = useState('')
   const debouncedSearch = useDebounced(search)
   const projects = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
+  const areas = useQuery({ queryKey: ['areas', project], queryFn: () => fetchAreas(project || undefined) })
   const issues = useQuery({
-    queryKey: ['issues', { search: debouncedSearch, status, severity, project }],
-    queryFn: () => fetchIssues({ search: debouncedSearch, status, severity, project }),
+    queryKey: ['issues', { search: debouncedSearch, status, severity, project, area }],
+    queryFn: () => fetchIssues({ search: debouncedSearch, status, severity, project, area }),
   })
 
   useEffect(() => {
@@ -76,11 +78,28 @@ export function IssuesPage() {
         </label>
         <label>
           Project
-          <select value={project} onChange={(event) => setProject(event.target.value)}>
+          <select
+            value={project}
+            onChange={(event) => {
+              setProject(event.target.value)
+              setArea('')
+            }}
+          >
             <option value="">All projects</option>
             {(projects.data ?? []).map((item) => (
               <option key={item.id} value={item.id}>
                 {item.key} · {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Area
+          <select value={area} onChange={(event) => setArea(event.target.value)}>
+            <option value="">Any area</option>
+            {(areas.data ?? []).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </select>
