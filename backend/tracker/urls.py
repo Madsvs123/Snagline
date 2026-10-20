@@ -11,6 +11,7 @@ from .views import (
     LabelViewSet,
     MilestoneViewSet,
     ProjectViewSet,
+    SavedFilterViewSet,
 )
 
 router = DefaultRouter()
@@ -22,6 +23,7 @@ router.register('issues', IssueViewSet, basename='issue')
 router.register('issue-links', IssueLinkViewSet, basename='issue-link')
 router.register('comments', CommentViewSet, basename='comment')
 router.register('activity', ActivityViewSet, basename='activity')
+router.register('saved-filters', SavedFilterViewSet, basename='saved-filter')
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),

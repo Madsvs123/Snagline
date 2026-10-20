@@ -3,7 +3,7 @@ import re
 from django.db.models import Max
 from rest_framework import serializers
 
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, clean_project_key
+from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, SavedFilter, clean_project_key
 
 HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
@@ -405,6 +405,83 @@ class CommentSerializer(serializers.ModelSerializer):
         if user is not None and issue.project.owner_id != user.id:
             raise serializers.ValidationError('Issue not found.')
         return issue
+
+
+class SavedFilterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedFilter
+        fields = [
+            'id',
+            'name',
+            'search',
+            'status',
+            'severity',
+            'project',
+            'milestone',
+            'label',
+            'area',
+            'created_at',
+        ]
+        read_only_fields = ['created_at']
+        extra_kwargs = {
+            'search': {'required': False, 'allow_blank': True},
+            'status': {'required': False, 'allow_blank': True},
+            'severity': {'required': False, 'allow_blank': True},
+            'project': {'required': False, 'allow_null': True},
+            'milestone': {'required': False, 'allow_null': True},
+            'label': {'required': False, 'allow_null': True},
+            'area': {'required': False, 'allow_null': True},
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            self.fields['project'].queryset = Project.objects.filter(owner=user)
+            self.fields['milestone'].queryset = Milestone.objects.filter(project__owner=user)
+            self.fields['label'].queryset = Label.objects.filter(project__owner=user)
+            self.fields['area'].queryset = Area.objects.filter(project__owner=user)
+
+    def validate_name(self, value):
+        value = value.strip()
+        if len(value) < 2:
+            raise serializers.ValidationError('Use at least 2 characters.')
+        return value
+
+    def validate_status(self, value):
+        value = (value or '').strip()
+        if value and value not in Issue.Status.values:
+            raise serializers.ValidationError('Choose a valid status.')
+        return value
+
+    def validate_severity(self, value):
+        value = (value or '').strip()
+        if value and value not in Issue.Severity.values:
+            raise serializers.ValidationError('Choose a valid severity.')
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        name = attrs.get('name') or getattr(self.instance, 'name', None)
+        if user is not None and user.is_authenticated and name:
+            clash = SavedFilter.objects.filter(owner=user, name__iexact=name)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError({'name': 'You already saved a filter with this name.'})
+
+        project = attrs['project'] if 'project' in attrs else getattr(self.instance, 'project', None)
+        for field in ('milestone', 'label', 'area'):
+            related = attrs[field] if field in attrs else getattr(self.instance, field, None)
+            if related is not None and project is not None and related.project_id != project.id:
+                raise serializers.ValidationError({field: 'That value belongs to a different project.'})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data['owner'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class ActivitySerializer(serializers.ModelSerializer):

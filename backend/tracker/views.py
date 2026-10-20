@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .filters import ActivityFilter, AreaFilter, CommentFilter, IssueFilter, IssueLinkFilter, LabelFilter, MilestoneFilter
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project
+from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, SavedFilter
 from .serializers import (
     ActivitySerializer,
     AreaSerializer,
@@ -16,6 +16,7 @@ from .serializers import (
     LabelSerializer,
     MilestoneSerializer,
     ProjectSerializer,
+    SavedFilterSerializer,
 )
 from .services import seed_default_labels
 
@@ -166,6 +167,18 @@ class CommentViewSet(viewsets.ModelViewSet):
             actor=self.request.user,
             kind='commented',
             detail='Added a comment',
+        )
+
+
+class SavedFilterViewSet(viewsets.ModelViewSet):
+    serializer_class = SavedFilterSerializer
+
+    def get_queryset(self):
+        return SavedFilter.objects.filter(owner=self.request.user).select_related(
+            'project',
+            'milestone',
+            'label',
+            'area',
         )
 
 

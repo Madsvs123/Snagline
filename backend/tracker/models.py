@@ -157,6 +157,28 @@ class Comment(models.Model):
         return f'Comment on {self.issue_id}'
 
 
+class SavedFilter(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_filters')
+    name = models.CharField(max_length=80)
+    search = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=20, blank=True)
+    severity = models.CharField(max_length=20, blank=True)
+    project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.CASCADE, related_name='saved_filters')
+    milestone = models.ForeignKey(Milestone, null=True, blank=True, on_delete=models.CASCADE, related_name='saved_filters')
+    label = models.ForeignKey(Label, null=True, blank=True, on_delete=models.CASCADE, related_name='saved_filters')
+    area = models.ForeignKey(Area, null=True, blank=True, on_delete=models.CASCADE, related_name='saved_filters')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'name'], name='unique_saved_filter_name_per_owner'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Activity(models.Model):
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='activities')
     actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activities')
