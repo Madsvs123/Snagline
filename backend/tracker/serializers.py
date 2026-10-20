@@ -1,8 +1,7 @@
-import re
-
 from django.db.models import Max
 from rest_framework import serializers
 
+from .colors import palette_name_for, resolve_label_color
 from .models import (
     Activity,
     Area,
@@ -17,7 +16,6 @@ from .models import (
     clean_project_key,
 )
 
-HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
 
 
@@ -77,10 +75,11 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class LabelSerializer(serializers.ModelSerializer):
     project_key = serializers.CharField(source='project.key', read_only=True)
+    palette_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Label
-        fields = ['id', 'project', 'project_key', 'name', 'color']
+        fields = ['id', 'project', 'project_key', 'name', 'color', 'palette_name']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -98,10 +97,14 @@ class LabelSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Enter a label name.')
         return value
 
+    def get_palette_name(self, obj):
+        return palette_name_for(obj.color)
+
     def validate_color(self, value):
-        if not HEX_COLOR.fullmatch(value):
-            raise serializers.ValidationError('Use a hex color like #c4532a.')
-        return value.lower()
+        resolved = resolve_label_color(value)
+        if not resolved:
+            raise serializers.ValidationError('Use a hex color like #c4532a, or a palette name such as clay.')
+        return resolved
 
     def validate(self, attrs):
         project = attrs.get('project') or getattr(self.instance, 'project', None)

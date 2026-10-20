@@ -9,6 +9,7 @@ from .views import (
     IssueLinkViewSet,
     IssueTemplateViewSet,
     IssueViewSet,
+    LabelPaletteView,
     LabelViewSet,
     MilestoneViewSet,
     ProjectViewSet,
@@ -29,5 +30,6 @@ router.register('saved-filters', SavedFilterViewSet, basename='saved-filter')
 
 urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('label-palette/', LabelPaletteView.as_view(), name='label-palette'),
     path('', include(router.urls)),
 ]

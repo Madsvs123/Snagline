@@ -7,6 +7,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .colors import LABEL_PALETTE
 from .filters import (
     ActivityFilter,
     AreaFilter,
@@ -244,6 +245,11 @@ class ActivityViewSet(viewsets.ReadOnlyModelViewSet):
             'issue',
             'issue__project',
         )
+
+
+class LabelPaletteView(APIView):
+    def get(self, request):
+        return Response({'colors': list(LABEL_PALETTE)})
 
 
 class DashboardView(APIView):

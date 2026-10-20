@@ -1,9 +1,12 @@
+from .colors import LABEL_PALETTE
 from .models import Label, Project
 
+_PALETTE = {item['name']: item['hex'] for item in LABEL_PALETTE}
+
 DEFAULT_LABELS = (
-    ('bug', '#c4532a'),
-    ('task', '#2a6f97'),
-    ('improvement', '#2f7d4a'),
+    ('bug', _PALETTE['clay']),
+    ('task', _PALETTE['sea']),
+    ('improvement', _PALETTE['pine']),
 )
 
 
