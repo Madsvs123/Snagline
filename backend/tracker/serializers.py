@@ -456,8 +456,8 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ['id', 'issue', 'body', 'author', 'author_name', 'created_at']
-        read_only_fields = ['author', 'created_at']
+        fields = ['id', 'issue', 'body', 'author', 'author_name', 'created_at', 'edited_at']
+        read_only_fields = ['author', 'created_at', 'edited_at']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -465,6 +465,8 @@ class CommentSerializer(serializers.ModelSerializer):
         user = getattr(request, 'user', None)
         if user is not None and user.is_authenticated:
             self.fields['issue'].queryset = Issue.objects.filter(project__owner=user)
+        if self.instance is not None:
+            self.fields['issue'].read_only = True
 
     def validate_body(self, value):
         value = value.strip()

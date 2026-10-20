@@ -2,6 +2,7 @@ import csv
 
 from django.db.models import Count, Exists, OuterRef, Q
 from django.http import HttpResponse
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -286,6 +287,15 @@ class CommentViewSet(viewsets.ModelViewSet):
             actor=self.request.user,
             kind='commented',
             detail='Added a comment',
+        )
+
+    def perform_update(self, serializer):
+        comment = serializer.save(edited_at=timezone.now())
+        Activity.objects.create(
+            issue=comment.issue,
+            actor=self.request.user,
+            kind='comment_edited',
+            detail='Edited a comment',
         )
 
 
