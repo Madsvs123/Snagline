@@ -1,4 +1,7 @@
+import csv
+
 from django.db.models import Count, Exists, OuterRef, Q
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -194,6 +197,45 @@ class IssueViewSet(viewsets.ModelViewSet):
             for issue in matches.order_by('number')[:8]
         ]
         return Response({'matches': payload})
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset()).order_by('project__key', 'number')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="snagline-issues.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            'key',
+            'number',
+            'title',
+            'body',
+            'status',
+            'severity',
+            'project',
+            'milestone',
+            'area',
+            'labels',
+            'reporter',
+            'created_at',
+            'updated_at',
+        ])
+        for issue in queryset:
+            writer.writerow([
+                issue.display_key,
+                issue.number,
+                issue.title,
+                issue.body,
+                issue.status,
+                issue.severity,
+                issue.project.key,
+                issue.milestone.name if issue.milestone_id else '',
+                issue.area.name if issue.area_id else '',
+                ', '.join(label.name for label in issue.labels.all()),
+                issue.reporter.username,
+                issue.created_at.isoformat(),
+                issue.updated_at.isoformat(),
+            ])
+        return response
 
 
 class IssueLinkViewSet(viewsets.ModelViewSet):
