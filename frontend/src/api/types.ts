@@ -48,6 +48,9 @@ export type Milestone = {
   due_on: string | null
   closed: boolean
   open_issue_count: number
+  total_issue_count: number
+  done_issue_count: number
+  progress_percent: number
   created_at: string
 }
 

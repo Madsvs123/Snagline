@@ -520,6 +520,21 @@ input[type='color'] {
   font-size: 1.25rem;
 }
 
+.progress {
+  height: 8px;
+  max-width: 240px;
+  margin-top: 0.45rem;
+  background: var(--paper-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+
 .issue-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;

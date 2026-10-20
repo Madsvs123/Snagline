@@ -69,6 +69,12 @@ export function MilestonesPage() {
                     {milestone.due_on ? `Due ${shortDate(milestone.due_on)}` : 'No due date'} · {milestone.open_issue_count} open
                     {milestone.closed ? ' · closed' : ''}
                   </span>
+                  <div className="progress" role="meter" aria-valuenow={milestone.progress_percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${milestone.name} progress`}>
+                    <span style={{ width: `${milestone.progress_percent}%` }} />
+                  </div>
+                  <span className="muted">
+                    {milestone.progress_percent}% complete · {milestone.done_issue_count} of {milestone.total_issue_count} resolved or closed
+                  </span>
                 </div>
                 <button
                   type="button"
