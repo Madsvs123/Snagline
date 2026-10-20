@@ -6,6 +6,8 @@ import type {
   DashboardData,
   Issue,
   IssueFilters,
+  IssueLink,
+  IssueLinkKind,
   IssueWrite,
   Area,
   Label,
@@ -110,6 +112,19 @@ export async function updateIssue(id: number, payload: IssueWrite): Promise<Issu
 
 export async function deleteIssue(id: number): Promise<void> {
   await api.delete(`/issues/${id}/`)
+}
+
+export async function fetchIssueLinks(issue: number): Promise<IssueLink[]> {
+  return fetchList<IssueLink>('/issue-links/', { issue })
+}
+
+export async function createIssueLink(payload: { source: number; target: number; kind: IssueLinkKind }): Promise<IssueLink> {
+  const { data } = await api.post<IssueLink>('/issue-links/', payload)
+  return data
+}
+
+export async function deleteIssueLink(id: number): Promise<void> {
+  await api.delete(`/issue-links/${id}/`)
 }
 
 export async function fetchComments(issue: number): Promise<Comment[]> {

@@ -20,6 +20,7 @@ import {
 } from '../api/queries'
 import type { Severity, Status } from '../api/types'
 import { SeverityBadge, StatusBadge } from '../components/Badge'
+import { IssueLinks } from '../components/IssueLinks'
 import { Field } from '../components/Field'
 import { QueryNotice } from '../components/QueryNotice'
 import { ACTIVITY_TEXT, SEVERITIES, STATUSES } from '../lib/constants'
@@ -165,6 +166,7 @@ export function IssueDetailPage() {
             </div>
             {issue.body ? <p className="prose">{issue.body}</p> : <p className="muted">No description yet.</p>}
           </article>
+          <IssueLinks issue={issue} />
           <article className="card stack">
             <h2>
               <MessageSquare size={18} aria-hidden="true" /> Comments
