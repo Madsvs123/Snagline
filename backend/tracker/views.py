@@ -34,6 +34,7 @@ from .serializers import (
 from .services import seed_default_labels
 
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
+DONE_STATUSES = [Issue.Status.RESOLVED, Issue.Status.CLOSED]
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -77,7 +78,9 @@ class MilestoneViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Milestone.objects.filter(project__owner=self.request.user).select_related('project').annotate(
-            open_issue_count=Count('issues', filter=Q(issues__status__in=OPEN_STATUSES)),
+            open_issue_count=Count('issues', filter=Q(issues__status__in=OPEN_STATUSES), distinct=True),
+            total_issue_count=Count('issues', distinct=True),
+            done_issue_count=Count('issues', filter=Q(issues__status__in=DONE_STATUSES), distinct=True),
         ).order_by('closed', 'due_on', 'name')
 
 

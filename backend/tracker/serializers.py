@@ -17,6 +17,7 @@ from .models import (
 )
 
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
+DONE_STATUSES = [Issue.Status.RESOLVED, Issue.Status.CLOSED]
 
 
 def _annotated(obj, name):
@@ -160,6 +161,9 @@ class AreaSerializer(serializers.ModelSerializer):
 class MilestoneSerializer(serializers.ModelSerializer):
     project_key = serializers.CharField(source='project.key', read_only=True)
     open_issue_count = serializers.SerializerMethodField()
+    total_issue_count = serializers.SerializerMethodField()
+    done_issue_count = serializers.SerializerMethodField()
+    progress_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = Milestone
@@ -172,9 +176,19 @@ class MilestoneSerializer(serializers.ModelSerializer):
             'due_on',
             'closed',
             'open_issue_count',
+            'total_issue_count',
+            'done_issue_count',
+            'progress_percent',
             'created_at',
         ]
-        read_only_fields = ['created_at', 'open_issue_count', 'project_key']
+        read_only_fields = [
+            'created_at',
+            'open_issue_count',
+            'total_issue_count',
+            'done_issue_count',
+            'progress_percent',
+            'project_key',
+        ]
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True},
             'due_on': {'required': False, 'allow_null': True},
@@ -192,6 +206,24 @@ class MilestoneSerializer(serializers.ModelSerializer):
         if annotated is not None:
             return annotated
         return obj.issues.filter(status__in=OPEN_STATUSES).count()
+
+    def get_total_issue_count(self, obj):
+        annotated = _annotated(obj, 'total_issue_count')
+        if annotated is not None:
+            return annotated
+        return obj.issues.count()
+
+    def get_done_issue_count(self, obj):
+        annotated = _annotated(obj, 'done_issue_count')
+        if annotated is not None:
+            return annotated
+        return obj.issues.filter(status__in=DONE_STATUSES).count()
+
+    def get_progress_percent(self, obj):
+        total = self.get_total_issue_count(obj)
+        if not total:
+            return 0
+        return round(100 * self.get_done_issue_count(obj) / total)
 
     def validate_name(self, value):
         value = value.strip()
