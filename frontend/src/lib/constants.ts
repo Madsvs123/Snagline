@@ -17,6 +17,14 @@ export const SEVERITIES: { value: Severity; label: string }[] = [
 export const ACTIVITY_TEXT: Record<string, string> = {
   created: 'opened the issue',
   commented: 'added a comment',
+  comment_edited: 'edited a comment',
   status_changed: 'changed status',
   severity_changed: 'changed severity',
+  title_changed: 'renamed the issue',
+  description_changed: 'updated the description',
+  milestone_changed: 'changed the milestone',
+  area_changed: 'changed the area',
+  labels_changed: 'changed labels',
+  linked: 'linked an issue',
+  unlinked: 'removed a link',
 }
