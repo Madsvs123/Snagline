@@ -3,7 +3,7 @@ import re
 from django.db.models import Max
 from rest_framework import serializers
 
-from .models import Activity, Comment, Issue, Label, Milestone, Project, clean_project_key
+from .models import Activity, Area, Comment, Issue, Label, Milestone, Project, clean_project_key
 
 HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
@@ -103,6 +103,45 @@ class LabelSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class AreaSerializer(serializers.ModelSerializer):
+    project_key = serializers.CharField(source='project.key', read_only=True)
+
+    class Meta:
+        model = Area
+        fields = ['id', 'project', 'project_key', 'name', 'description']
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            self.fields['project'].queryset = Project.objects.filter(owner=user)
+
+    def validate_name(self, value):
+        value = value.strip()
+        if len(value) < 2:
+            raise serializers.ValidationError('Use at least 2 characters.')
+        return value
+
+    def validate(self, attrs):
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+        name = attrs.get('name') or getattr(self.instance, 'name', None)
+        if project and name:
+            clash = Area.objects.filter(project=project, name__iexact=name)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError({'name': 'That area already exists on this project.'})
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated and project is not None and project.owner_id != user.id:
+            raise serializers.ValidationError({'project': 'Choose one of your projects.'})
+        return attrs
+
+
 class MilestoneSerializer(serializers.ModelSerializer):
     project_key = serializers.CharField(source='project.key', read_only=True)
     open_issue_count = serializers.SerializerMethodField()
@@ -173,6 +212,7 @@ class IssueSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source='project.name', read_only=True)
     project_key = serializers.CharField(source='project.key', read_only=True)
     milestone_name = serializers.SerializerMethodField()
+    area_name = serializers.SerializerMethodField()
     reporter_name = serializers.CharField(source='reporter.username', read_only=True)
     comment_count = serializers.SerializerMethodField()
 
@@ -190,6 +230,8 @@ class IssueSerializer(serializers.ModelSerializer):
             'project_key',
             'milestone',
             'milestone_name',
+            'area',
+            'area_name',
             'labels',
             'label_ids',
             'reporter_name',
@@ -209,13 +251,21 @@ class IssueSerializer(serializers.ModelSerializer):
         if user is not None and user.is_authenticated:
             self.fields['project'].queryset = Project.objects.filter(owner=user)
             self.fields['milestone'].queryset = Milestone.objects.filter(project__owner=user)
+            self.fields['area'].queryset = Area.objects.filter(project__owner=user)
             self.fields['label_ids'].queryset = Label.objects.filter(project__owner=user)
         self.fields['milestone'].allow_null = True
         self.fields['milestone'].required = False
+        self.fields['area'].allow_null = True
+        self.fields['area'].required = False
 
     def get_milestone_name(self, obj):
         if obj.milestone_id and obj.milestone:
             return obj.milestone.name
+        return None
+
+    def get_area_name(self, obj):
+        if obj.area_id and obj.area:
+            return obj.area.name
         return None
 
     def get_comment_count(self, obj):
@@ -243,6 +293,11 @@ class IssueSerializer(serializers.ModelSerializer):
             if attrs['milestone'].project_id != project.id:
                 raise serializers.ValidationError({
                     'milestone': 'Milestone must belong to the selected project.',
+                })
+        if project and 'area' in attrs and attrs['area'] is not None:
+            if attrs['area'].project_id != project.id:
+                raise serializers.ValidationError({
+                    'area': 'Area must belong to the selected project.',
                 })
         return attrs
 

@@ -5,10 +5,11 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .filters import ActivityFilter, CommentFilter, IssueFilter, LabelFilter, MilestoneFilter
-from .models import Activity, Comment, Issue, Label, Milestone, Project
+from .filters import ActivityFilter, AreaFilter, CommentFilter, IssueFilter, LabelFilter, MilestoneFilter
+from .models import Activity, Area, Comment, Issue, Label, Milestone, Project
 from .serializers import (
     ActivitySerializer,
+    AreaSerializer,
     CommentSerializer,
     IssueSerializer,
     LabelSerializer,
@@ -43,6 +44,16 @@ class LabelViewSet(viewsets.ModelViewSet):
         return Label.objects.filter(project__owner=self.request.user).select_related('project').order_by('name')
 
 
+class AreaViewSet(viewsets.ModelViewSet):
+    serializer_class = AreaSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = AreaFilter
+    ordering_fields = ['name']
+
+    def get_queryset(self):
+        return Area.objects.filter(project__owner=self.request.user).select_related('project').order_by('name')
+
+
 class MilestoneViewSet(viewsets.ModelViewSet):
     serializer_class = MilestoneSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter]
@@ -66,7 +77,7 @@ class IssueViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return (
             Issue.objects.filter(project__owner=self.request.user)
-            .select_related('project', 'milestone', 'reporter')
+            .select_related('project', 'milestone', 'area', 'reporter')
             .prefetch_related('labels')
             .annotate(comment_count=Count('comments', distinct=True))
             .distinct()
@@ -151,7 +162,7 @@ class DashboardView(APIView):
             for value, label in Issue.Severity.choices
         ]
         recent_queryset = (
-            owned.select_related('project', 'milestone', 'reporter')
+            owned.select_related('project', 'milestone', 'area', 'reporter')
             .prefetch_related('labels')
             .annotate(comment_count=Count('comments', distinct=True))
             .order_by('-updated_at')[:6]

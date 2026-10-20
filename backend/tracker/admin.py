@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Activity, Comment, Issue, Label, Milestone, Project
+from .models import Activity, Area, Comment, Issue, Label, Milestone, Project
 
 
 @admin.register(Project)
@@ -14,6 +14,12 @@ class IssueAdmin(admin.ModelAdmin):
     list_display = ('number', 'title', 'project', 'status', 'severity', 'updated_at')
     list_filter = ('status', 'severity')
     search_fields = ('title', 'body')
+
+
+@admin.register(Area)
+class AreaAdmin(admin.ModelAdmin):
+    list_display = ('name', 'project')
+    search_fields = ('name', 'project__key')
 
 
 admin.site.register(Label)

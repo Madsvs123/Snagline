@@ -1,6 +1,6 @@
 import django_filters
 
-from .models import Activity, Comment, Issue, Label, Milestone
+from .models import Activity, Area, Comment, Issue, Label, Milestone
 
 
 class IssueFilter(django_filters.FilterSet):
@@ -9,10 +9,11 @@ class IssueFilter(django_filters.FilterSet):
     project = django_filters.NumberFilter(field_name='project_id')
     milestone = django_filters.NumberFilter(field_name='milestone_id')
     label = django_filters.NumberFilter(field_name='labels__id')
+    area = django_filters.NumberFilter(field_name='area_id')
 
     class Meta:
         model = Issue
-        fields = ['status', 'severity', 'project', 'milestone', 'label']
+        fields = ['status', 'severity', 'project', 'milestone', 'label', 'area']
 
 
 class CommentFilter(django_filters.FilterSet):
@@ -36,6 +37,14 @@ class LabelFilter(django_filters.FilterSet):
 
     class Meta:
         model = Label
+        fields = ['project']
+
+
+class AreaFilter(django_filters.FilterSet):
+    project = django_filters.NumberFilter(field_name='project_id')
+
+    class Meta:
+        model = Area
         fields = ['project']
 
 

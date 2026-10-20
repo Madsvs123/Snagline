@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     ActivityViewSet,
+    AreaViewSet,
     CommentViewSet,
     DashboardView,
     IssueViewSet,
@@ -14,6 +15,7 @@ from .views import (
 router = DefaultRouter()
 router.register('projects', ProjectViewSet, basename='project')
 router.register('labels', LabelViewSet, basename='label')
+router.register('areas', AreaViewSet, basename='area')
 router.register('milestones', MilestoneViewSet, basename='milestone')
 router.register('issues', IssueViewSet, basename='issue')
 router.register('comments', CommentViewSet, basename='comment')

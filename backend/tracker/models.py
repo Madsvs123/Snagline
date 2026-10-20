@@ -36,6 +36,23 @@ class Label(models.Model):
         return self.name
 
 
+class Area(models.Model):
+    """A component of a project, such as the editor or the API."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='areas')
+    name = models.CharField(max_length=80)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'name'], name='unique_area_name_per_project'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Milestone(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='milestones')
     name = models.CharField(max_length=120)
@@ -73,6 +90,13 @@ class Issue(models.Model):
     labels = models.ManyToManyField(Label, blank=True, related_name='issues')
     milestone = models.ForeignKey(
         Milestone,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='issues',
+    )
+    area = models.ForeignKey(
+        Area,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
