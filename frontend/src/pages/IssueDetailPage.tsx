@@ -10,6 +10,7 @@ import { errorMessage } from '../api/client'
 import {
   createComment,
   deleteComment,
+  updateComment,
   deleteIssue,
   fetchActivity,
   fetchComments,
@@ -39,6 +40,8 @@ export function IssueDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState('')
   const issueQuery = useQuery({
     queryKey: ['issue', id],
     queryFn: () => fetchIssue(id),
@@ -88,6 +91,17 @@ export function IssueDetailPage() {
     mutationFn: (values: CommentValues) => createComment({ issue: id, body: values.body }),
     onSuccess: async () => {
       form.reset()
+      setFormError(null)
+      await queryClient.invalidateQueries({ queryKey: ['comments', id] })
+      await refreshIssue()
+    },
+    onError: (error) => setFormError(errorMessage(error)),
+  })
+  const editComment = useMutation({
+    mutationFn: () => updateComment(editingId ?? 0, editDraft.trim()),
+    onSuccess: async () => {
+      setEditingId(null)
+      setEditDraft('')
       setFormError(null)
       await queryClient.invalidateQueries({ queryKey: ['comments', id] })
       await refreshIssue()
@@ -180,11 +194,52 @@ export function IssueDetailPage() {
                     <time dateTime={item.created_at} title={exactTime(item.created_at)}>
                       {timeAgo(item.created_at)}
                     </time>
+                    {item.edited_at ? (
+                      <time dateTime={item.edited_at} title={exactTime(item.edited_at)} className="muted">
+                        edited {timeAgo(item.edited_at)}
+                      </time>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setEditingId(item.id)
+                        setEditDraft(item.body)
+                      }}
+                    >
+                      Edit
+                    </button>
                     <button type="button" className="text-button" onClick={() => removeComment.mutate(item.id)}>
                       Delete
                     </button>
                   </header>
-                  <p className="prose">{item.body}</p>
+                  {editingId === item.id ? (
+                    <div className="stack">
+                      <textarea value={editDraft} onChange={(event) => setEditDraft(event.target.value)} />
+                      <div className="row">
+                        <button
+                          type="button"
+                          className="button button-primary"
+                          disabled={editComment.isPending || editDraft.trim().length === 0}
+                          onClick={() => editComment.mutate()}
+                        >
+                          {editComment.isPending ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-ghost"
+                          onClick={() => {
+                            setEditingId(null)
+                            setEditDraft('')
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="prose">{item.body}</p>
+                  )}
                 </li>
               ))}
             </ul>

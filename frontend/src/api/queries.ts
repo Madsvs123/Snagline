@@ -158,6 +158,11 @@ export async function createComment(payload: { issue: number; body: string }): P
   return data
 }
 
+export async function updateComment(id: number, body: string): Promise<Comment> {
+  const { data } = await api.patch<Comment>(`/comments/${id}/`, { body })
+  return data
+}
+
 export async function deleteComment(id: number): Promise<void> {
   await api.delete(`/comments/${id}/`)
 }

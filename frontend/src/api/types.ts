@@ -121,6 +121,7 @@ export type Comment = {
   author: number
   author_name: string
   created_at: string
+  edited_at: string | null
 }
 
 export type ActivityItem = {
