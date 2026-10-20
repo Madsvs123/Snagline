@@ -123,6 +123,27 @@ class Issue(models.Model):
         return f'{self.project.key}-{self.number}'
 
 
+class IssueLink(models.Model):
+    class Kind(models.TextChoices):
+        BLOCKS = 'blocks', 'Blocks'
+        RELATES = 'relates', 'Relates'
+
+    source = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='outgoing_links')
+    target = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='incoming_links')
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['source', 'target', 'kind'], name='unique_issue_link'),
+            models.CheckConstraint(condition=~models.Q(source=models.F('target')), name='issue_link_not_self'),
+        ]
+
+    def __str__(self):
+        return f'{self.source_id} {self.kind} {self.target_id}'
+
+
 class Comment(models.Model):
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE, related_name='comments')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')

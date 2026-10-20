@@ -3,7 +3,7 @@ import re
 from django.db.models import Max
 from rest_framework import serializers
 
-from .models import Activity, Area, Comment, Issue, Label, Milestone, Project, clean_project_key
+from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, clean_project_key
 
 HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
@@ -318,6 +318,64 @@ class IssueSerializer(serializers.ModelSerializer):
         if label_ids is not None:
             issue.labels.set(label_ids)
         return issue
+
+
+class IssueLinkSerializer(serializers.ModelSerializer):
+    source_key = serializers.SerializerMethodField()
+    target_key = serializers.SerializerMethodField()
+    source_title = serializers.CharField(source='source.title', read_only=True)
+    target_title = serializers.CharField(source='target.title', read_only=True)
+
+    class Meta:
+        model = IssueLink
+        fields = [
+            'id',
+            'source',
+            'target',
+            'kind',
+            'source_key',
+            'target_key',
+            'source_title',
+            'target_title',
+            'created_at',
+        ]
+        read_only_fields = ['created_at']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            owned = Issue.objects.filter(project__owner=user)
+            self.fields['source'].queryset = owned
+            self.fields['target'].queryset = owned
+
+    def get_source_key(self, obj):
+        return obj.source.display_key
+
+    def get_target_key(self, obj):
+        return obj.target.display_key
+
+    def validate(self, attrs):
+        source = attrs.get('source') or getattr(self.instance, 'source', None)
+        target = attrs.get('target') or getattr(self.instance, 'target', None)
+        kind = attrs.get('kind') or getattr(self.instance, 'kind', None)
+        if source is None or target is None:
+            return attrs
+        if source.pk == target.pk:
+            raise serializers.ValidationError('An issue cannot link to itself.')
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            if source.project.owner_id != user.id or target.project.owner_id != user.id:
+                raise serializers.ValidationError('Link issues from your own projects.')
+        if kind:
+            clash = IssueLink.objects.filter(source=source, target=target, kind=kind)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError('That link already exists.')
+        return attrs
 
 
 class CommentSerializer(serializers.ModelSerializer):

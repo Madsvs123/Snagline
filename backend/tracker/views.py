@@ -5,12 +5,13 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .filters import ActivityFilter, AreaFilter, CommentFilter, IssueFilter, LabelFilter, MilestoneFilter
-from .models import Activity, Area, Comment, Issue, Label, Milestone, Project
+from .filters import ActivityFilter, AreaFilter, CommentFilter, IssueFilter, IssueLinkFilter, LabelFilter, MilestoneFilter
+from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project
 from .serializers import (
     ActivitySerializer,
     AreaSerializer,
     CommentSerializer,
+    IssueLinkSerializer,
     IssueSerializer,
     LabelSerializer,
     MilestoneSerializer,
@@ -115,6 +116,39 @@ class IssueViewSet(viewsets.ModelViewSet):
                     f'{severity_labels.get(issue.severity, issue.severity)}'
                 ),
             )
+
+
+class IssueLinkViewSet(viewsets.ModelViewSet):
+    serializer_class = IssueLinkSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = IssueLinkFilter
+
+    def get_queryset(self):
+        return IssueLink.objects.filter(source__project__owner=self.request.user).select_related(
+            'source',
+            'source__project',
+            'target',
+            'target__project',
+        )
+
+    def perform_create(self, serializer):
+        link = serializer.save()
+        kind_labels = dict(IssueLink.Kind.choices)
+        Activity.objects.create(
+            issue=link.source,
+            actor=self.request.user,
+            kind='linked',
+            detail=f'{link.source.display_key} {kind_labels.get(link.kind, link.kind).lower()} {link.target.display_key}',
+        )
+
+    def perform_destroy(self, instance):
+        Activity.objects.create(
+            issue=instance.source,
+            actor=self.request.user,
+            kind='unlinked',
+            detail=f'Removed the link from {instance.source.display_key} to {instance.target.display_key}',
+        )
+        instance.delete()
 
 
 class CommentViewSet(viewsets.ModelViewSet):

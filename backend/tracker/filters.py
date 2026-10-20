@@ -1,6 +1,7 @@
 import django_filters
+from django.db.models import Q
 
-from .models import Activity, Area, Comment, Issue, Label, Milestone
+from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone
 
 
 class IssueFilter(django_filters.FilterSet):
@@ -14,6 +15,17 @@ class IssueFilter(django_filters.FilterSet):
     class Meta:
         model = Issue
         fields = ['status', 'severity', 'project', 'milestone', 'label', 'area']
+
+
+class IssueLinkFilter(django_filters.FilterSet):
+    issue = django_filters.NumberFilter(method='filter_issue')
+
+    class Meta:
+        model = IssueLink
+        fields = ['issue']
+
+    def filter_issue(self, queryset, name, value):
+        return queryset.filter(Q(source_id=value) | Q(target_id=value))
 
 
 class CommentFilter(django_filters.FilterSet):
