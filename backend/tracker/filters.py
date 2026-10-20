@@ -1,7 +1,7 @@
 import django_filters
 from django.db.models import Q
 
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone
+from .models import Activity, Area, Comment, Issue, IssueLink, IssueTemplate, Label, Milestone
 
 
 class IssueFilter(django_filters.FilterSet):
@@ -49,6 +49,14 @@ class LabelFilter(django_filters.FilterSet):
 
     class Meta:
         model = Label
+        fields = ['project']
+
+
+class IssueTemplateFilter(django_filters.FilterSet):
+    project = django_filters.NumberFilter(field_name='project_id')
+
+    class Meta:
+        model = IssueTemplate
         fields = ['project']
 
 

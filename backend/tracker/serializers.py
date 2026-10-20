@@ -3,7 +3,19 @@ import re
 from django.db.models import Max
 from rest_framework import serializers
 
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, SavedFilter, clean_project_key
+from .models import (
+    Activity,
+    Area,
+    Comment,
+    Issue,
+    IssueLink,
+    IssueTemplate,
+    Label,
+    Milestone,
+    Project,
+    SavedFilter,
+    clean_project_key,
+)
 
 HEX_COLOR = re.compile(r'^#[0-9a-fA-F]{6}$')
 OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
@@ -405,6 +417,48 @@ class CommentSerializer(serializers.ModelSerializer):
         if user is not None and issue.project.owner_id != user.id:
             raise serializers.ValidationError('Issue not found.')
         return issue
+
+
+class IssueTemplateSerializer(serializers.ModelSerializer):
+    project_key = serializers.CharField(source='project.key', read_only=True)
+
+    class Meta:
+        model = IssueTemplate
+        fields = ['id', 'project', 'project_key', 'name', 'title', 'body', 'severity', 'created_at']
+        read_only_fields = ['created_at', 'project_key']
+        extra_kwargs = {
+            'body': {'required': False, 'allow_blank': True},
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            self.fields['project'].queryset = Project.objects.filter(owner=user)
+
+    def validate_name(self, value):
+        value = value.strip()
+        if len(value) < 2:
+            raise serializers.ValidationError('Use at least 2 characters.')
+        return value
+
+    def validate_title(self, value):
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError('Use at least 3 characters.')
+        return value
+
+    def validate(self, attrs):
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+        name = attrs.get('name') or getattr(self.instance, 'name', None)
+        if project and name:
+            clash = IssueTemplate.objects.filter(project=project, name__iexact=name)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError({'name': 'That template already exists on this project.'})
+        return attrs
 
 
 class SavedFilterSerializer(serializers.ModelSerializer):

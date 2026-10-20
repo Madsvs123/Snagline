@@ -7,6 +7,7 @@ from .views import (
     CommentViewSet,
     DashboardView,
     IssueLinkViewSet,
+    IssueTemplateViewSet,
     IssueViewSet,
     LabelViewSet,
     MilestoneViewSet,
@@ -20,6 +21,7 @@ router.register('labels', LabelViewSet, basename='label')
 router.register('areas', AreaViewSet, basename='area')
 router.register('milestones', MilestoneViewSet, basename='milestone')
 router.register('issues', IssueViewSet, basename='issue')
+router.register('issue-templates', IssueTemplateViewSet, basename='issue-template')
 router.register('issue-links', IssueLinkViewSet, basename='issue-link')
 router.register('comments', CommentViewSet, basename='comment')
 router.register('activity', ActivityViewSet, basename='activity')

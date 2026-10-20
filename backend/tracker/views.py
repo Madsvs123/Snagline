@@ -5,14 +5,24 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .filters import ActivityFilter, AreaFilter, CommentFilter, IssueFilter, IssueLinkFilter, LabelFilter, MilestoneFilter
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, SavedFilter
+from .filters import (
+    ActivityFilter,
+    AreaFilter,
+    CommentFilter,
+    IssueFilter,
+    IssueLinkFilter,
+    IssueTemplateFilter,
+    LabelFilter,
+    MilestoneFilter,
+)
+from .models import Activity, Area, Comment, Issue, IssueLink, IssueTemplate, Label, Milestone, Project, SavedFilter
 from .serializers import (
     ActivitySerializer,
     AreaSerializer,
     CommentSerializer,
     IssueLinkSerializer,
     IssueSerializer,
+    IssueTemplateSerializer,
     LabelSerializer,
     MilestoneSerializer,
     ProjectSerializer,
@@ -168,6 +178,16 @@ class CommentViewSet(viewsets.ModelViewSet):
             kind='commented',
             detail='Added a comment',
         )
+
+
+class IssueTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = IssueTemplateSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = IssueTemplateFilter
+    ordering_fields = ['name', 'created_at']
+
+    def get_queryset(self):
+        return IssueTemplate.objects.filter(project__owner=self.request.user).select_related('project').order_by('name')
 
 
 class SavedFilterViewSet(viewsets.ModelViewSet):

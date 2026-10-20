@@ -157,6 +157,24 @@ class Comment(models.Model):
         return f'Comment on {self.issue_id}'
 
 
+class IssueTemplate(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='templates')
+    name = models.CharField(max_length=80)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    severity = models.CharField(max_length=20, choices=Issue.Severity.choices, default=Issue.Severity.MEDIUM)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'name'], name='unique_template_name_per_project'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class SavedFilter(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_filters')
     name = models.CharField(max_length=80)

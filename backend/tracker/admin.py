@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Activity, Area, Comment, Issue, IssueLink, Label, Milestone, Project, SavedFilter
+from .models import Activity, Area, Comment, Issue, IssueLink, IssueTemplate, Label, Milestone, Project, SavedFilter
 
 
 @admin.register(Project)
@@ -26,5 +26,6 @@ admin.site.register(Label)
 admin.site.register(Milestone)
 admin.site.register(Comment)
 admin.site.register(IssueLink)
+admin.site.register(IssueTemplate)
 admin.site.register(Activity)
 admin.site.register(SavedFilter)
