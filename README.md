@@ -1,8 +1,10 @@
 # Snagline
 
-Snagline is a single-operator issue tracker for defects and tasks in your own software projects. Register one owner account, keep a list of projects, and file issues with a title, description, status, severity, labels, and an optional milestone. Each issue can collect comments and an activity trail when it is opened, commented on, or moved to a new status.
+Snagline is a single-operator issue tracker for defects and tasks in your own software projects. Register one owner account, keep a list of projects, and file issues with a title, description, status, severity, labels, an optional milestone, and an optional area. Issues can block or relate to one another. Templates prefill a new issue. Saved filters, bulk status changes, and a CSV export sit on the issue list. Each issue can collect comments, including edits, and an activity trail for triage changes.
 
-Search and status filters narrow the issue list. The dashboard shows counts by status and a chart of issues by severity.
+Search matches the title, description, comments, and issue key. A repeated title in the same project raises a warning and still saves. The dashboard shows counts by status, a chart of issues by severity, and counts of open work by severity. Milestones report how much of their work is resolved or closed. Label colors come from a named palette or any hex value.
+
+`manage.py issue` files an issue from the shell. `PLAN.md` lists further tracker work.
 
 ## Who it is for
 
@@ -45,7 +47,7 @@ From the `backend` directory:
 .\.venv\Scripts\python.exe manage.py test
 ```
 
-The suite registers an owner, files an issue, adds a comment, changes status, and checks search and status filters.
+The suite registers an owner, files an issue, adds a comment, changes status, and checks search and status filters. It also covers areas, links, templates, bulk status, saved filters, comment edits, CSV export, duplicate titles, milestone progress, the label palette, the `issue` command, and open-issue counts by severity.
 
 ### Frontend production build
 
@@ -71,7 +73,13 @@ Set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `P
 - `POST /api/auth/register/` creates the owner, the Inbox project, and a JWT pair
 - `POST /api/auth/token/` and `POST /api/auth/token/refresh/`
 - `GET /api/auth/me/`
-- `GET /api/dashboard/`
-- `/api/projects/`, `/api/labels/`, `/api/milestones/`, `/api/issues/`, `/api/comments/`, `/api/activity/`
+- `GET /api/dashboard/` includes status counts, `by_severity`, and `open_by_severity`
+- `GET /api/label-palette/`
+- `/api/projects/`, `/api/labels/`, `/api/areas/`, `/api/milestones/`, `/api/issues/`, `/api/issue-templates/`, `/api/issue-links/`, `/api/comments/`, `/api/activity/`, `/api/saved-filters/`
+- `POST /api/issues/bulk-status/` with `ids` and `status`
+- `GET /api/issues/title-check/?project=&title=`
+- `GET /api/issues/export/` returns the filtered issue list as CSV
 
-Issue lists accept `search`, `status`, `severity`, `project`, `milestone`, and `label` query parameters.
+Issue lists accept `search`, `status`, `severity`, `project`, `milestone`, `label`, and `area` query parameters. Search looks at the title, the description, comments, and an issue key such as `EDIT-1`.
+
+From the `backend` directory, `manage.py issue "Title" --project INBOX` creates an issue for the only owner account. Pass `--owner` when more than one account exists. Optional flags are `--body`, `--severity`, `--status`, `--area`, and `--milestone`.
