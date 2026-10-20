@@ -239,11 +239,29 @@ nav {
   align-items: center;
 }
 
-.filters {
+.filters,
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
   margin-bottom: 1rem;
+  align-items: end;
+}
+
+.toolbar input,
+.toolbar select {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+}
+
+.toolbar > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
 }
 
 .filters > label,

@@ -6,9 +6,33 @@ import type { Issue } from '../api/types'
 import { exactTime, timeAgo } from '../lib/format'
 import { SeverityBadge, StatusBadge } from './Badge'
 
-export function IssueTable({ issues }: { issues: Issue[] }) {
+export function IssueTable({
+  issues,
+  selected,
+  onToggle,
+}: {
+  issues: Issue[]
+  selected?: number[]
+  onToggle?: (id: number, checked: boolean) => void
+}) {
   const columns = useMemo<ColumnDef<Issue>[]>(
     () => [
+      ...(onToggle
+        ? [
+            {
+              id: 'select',
+              header: '',
+              cell: ({ row }) => (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${row.original.project_key}-${row.original.number}`}
+                  checked={selected?.includes(row.original.id) ?? false}
+                  onChange={(event) => onToggle(row.original.id, event.target.checked)}
+                />
+              ),
+            } satisfies ColumnDef<Issue>,
+          ]
+        : []),
       {
         id: 'key',
         header: 'Issue',
@@ -68,7 +92,7 @@ export function IssueTable({ issues }: { issues: Issue[] }) {
         ),
       },
     ],
-    [],
+    [onToggle, selected],
   )
 
   const table = useReactTable({

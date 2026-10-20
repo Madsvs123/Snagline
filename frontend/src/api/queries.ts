@@ -15,6 +15,8 @@ import type {
   Milestone,
   Page,
   Project,
+  SavedFilter,
+  Status,
 } from './types'
 
 function cleanParams(params?: Record<string, string | number | undefined>): Record<string, string | number> {
@@ -162,6 +164,39 @@ export async function deleteComment(id: number): Promise<void> {
 
 export async function fetchActivity(issue: number): Promise<ActivityItem[]> {
   return fetchList<ActivityItem>('/activity/', { issue })
+}
+
+export async function fetchSavedFilters(): Promise<SavedFilter[]> {
+  return fetchList<SavedFilter>('/saved-filters/')
+}
+
+export async function createSavedFilter(payload: {
+  name: string
+  search?: string
+  status?: string
+  severity?: string
+  project?: number | null
+  area?: number | null
+}): Promise<SavedFilter> {
+  const { data } = await api.post<SavedFilter>('/saved-filters/', payload)
+  return data
+}
+
+export async function deleteSavedFilter(id: number): Promise<void> {
+  await api.delete(`/saved-filters/${id}/`)
+}
+
+export async function bulkUpdateStatus(ids: number[], status: Status): Promise<{ updated: number[]; status: string }> {
+  const { data } = await api.post<{ updated: number[]; status: string }>('/issues/bulk-status/', { ids, status })
+  return data
+}
+
+export async function exportIssues(filters: IssueFilters): Promise<Blob> {
+  const { data } = await api.get<Blob>('/issues/export/', {
+    params: cleanParams(filters),
+    responseType: 'blob',
+  })
+  return data
 }
 
 export async function fetchDashboard(): Promise<DashboardData> {

@@ -150,6 +150,19 @@ export type DashboardData = {
   recent_activity: ActivityItem[]
 }
 
+export type SavedFilter = {
+  id: number
+  name: string
+  search: string
+  status: string
+  severity: string
+  project: number | null
+  milestone: number | null
+  label: number | null
+  area: number | null
+  created_at: string
+}
+
 export type IssueFilters = {
   search?: string
   status?: string
