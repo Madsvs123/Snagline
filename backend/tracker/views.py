@@ -1,0 +1,169 @@
+from django.db.models import Count, Q
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .filters import ActivityFilter, CommentFilter, IssueFilter, LabelFilter, MilestoneFilter
+from .models import Activity, Comment, Issue, Label, Milestone, Project
+from .serializers import (
+    ActivitySerializer,
+    CommentSerializer,
+    IssueSerializer,
+    LabelSerializer,
+    MilestoneSerializer,
+    ProjectSerializer,
+)
+from .services import seed_default_labels
+
+OPEN_STATUSES = [Issue.Status.OPEN, Issue.Status.IN_PROGRESS]
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    serializer_class = ProjectSerializer
+
+    def get_queryset(self):
+        return Project.objects.filter(owner=self.request.user).annotate(
+            open_issue_count=Count('issues', filter=Q(issues__status__in=OPEN_STATUSES)),
+        ).order_by('name')
+
+    def perform_create(self, serializer):
+        project = serializer.save(owner=self.request.user)
+        seed_default_labels(project)
+
+
+class LabelViewSet(viewsets.ModelViewSet):
+    serializer_class = LabelSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = LabelFilter
+    ordering_fields = ['name']
+
+    def get_queryset(self):
+        return Label.objects.filter(project__owner=self.request.user).select_related('project').order_by('name')
+
+
+class MilestoneViewSet(viewsets.ModelViewSet):
+    serializer_class = MilestoneSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = MilestoneFilter
+    ordering_fields = ['due_on', 'name', 'created_at']
+
+    def get_queryset(self):
+        return Milestone.objects.filter(project__owner=self.request.user).select_related('project').annotate(
+            open_issue_count=Count('issues', filter=Q(issues__status__in=OPEN_STATUSES)),
+        ).order_by('closed', 'due_on', 'name')
+
+
+class IssueViewSet(viewsets.ModelViewSet):
+    serializer_class = IssueSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = IssueFilter
+    search_fields = ['title', 'body']
+    ordering_fields = ['created_at', 'updated_at', 'number', 'severity', 'status']
+    ordering = ['-updated_at']
+
+    def get_queryset(self):
+        return (
+            Issue.objects.filter(project__owner=self.request.user)
+            .select_related('project', 'milestone', 'reporter')
+            .prefetch_related('labels')
+            .annotate(comment_count=Count('comments', distinct=True))
+            .distinct()
+        )
+
+    def perform_create(self, serializer):
+        issue = serializer.save()
+        Activity.objects.create(
+            issue=issue,
+            actor=self.request.user,
+            kind='created',
+            detail=f'Opened {issue.project.key}-{issue.number}',
+        )
+
+    def perform_update(self, serializer):
+        previous_status = serializer.instance.status
+        previous_severity = serializer.instance.severity
+        issue = serializer.save()
+        if issue.status != previous_status:
+            status_labels = dict(Issue.Status.choices)
+            Activity.objects.create(
+                issue=issue,
+                actor=self.request.user,
+                kind='status_changed',
+                detail=f'{status_labels.get(previous_status, previous_status)} -> {status_labels.get(issue.status, issue.status)}',
+            )
+        if issue.severity != previous_severity:
+            severity_labels = dict(Issue.Severity.choices)
+            Activity.objects.create(
+                issue=issue,
+                actor=self.request.user,
+                kind='severity_changed',
+                detail=(
+                    f'{severity_labels.get(previous_severity, previous_severity)} -> '
+                    f'{severity_labels.get(issue.severity, issue.severity)}'
+                ),
+            )
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = CommentFilter
+
+    def get_queryset(self):
+        return Comment.objects.filter(issue__project__owner=self.request.user).select_related('author', 'issue').order_by('created_at')
+
+    def perform_create(self, serializer):
+        comment = serializer.save(author=self.request.user)
+        Activity.objects.create(
+            issue=comment.issue,
+            actor=self.request.user,
+            kind='commented',
+            detail='Added a comment',
+        )
+
+
+class ActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ActivitySerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ActivityFilter
+
+    def get_queryset(self):
+        return Activity.objects.filter(issue__project__owner=self.request.user).select_related(
+            'actor',
+            'issue',
+            'issue__project',
+        )
+
+
+class DashboardView(APIView):
+    def get(self, request):
+        owned = Issue.objects.filter(project__owner=request.user)
+        status_rows = {row['status']: row['total'] for row in owned.values('status').annotate(total=Count('id'))}
+        counts = {value: status_rows.get(value, 0) for value, _label in Issue.Status.choices}
+        counts['total'] = sum(counts.values())
+        severity_rows = {
+            row['severity']: row['total'] for row in owned.values('severity').annotate(total=Count('id'))
+        }
+        by_severity = [
+            {'severity': value, 'label': label, 'count': severity_rows.get(value, 0)}
+            for value, label in Issue.Severity.choices
+        ]
+        recent_queryset = (
+            owned.select_related('project', 'milestone', 'reporter')
+            .prefetch_related('labels')
+            .annotate(comment_count=Count('comments', distinct=True))
+            .order_by('-updated_at')[:6]
+        )
+        recent_activity = Activity.objects.filter(issue__project__owner=request.user).select_related(
+            'actor',
+            'issue',
+            'issue__project',
+        )[:8]
+        return Response({
+            'counts': counts,
+            'by_severity': by_severity,
+            'recent_issues': IssueSerializer(recent_queryset, many=True, context={'request': request}).data,
+            'recent_activity': ActivitySerializer(recent_activity, many=True).data,
+        })
