@@ -14,6 +14,7 @@ import {
   deleteIssueTemplate,
   fetchAreas,
   fetchIssueTemplates,
+  fetchLabelPalette,
   fetchLabels,
   fetchProject,
 } from '../api/queries'
@@ -56,6 +57,7 @@ export function ProjectDetailPage() {
     queryFn: () => fetchProject(id),
     enabled: validId,
   })
+  const palette = useQuery({ queryKey: ['label-palette'], queryFn: fetchLabelPalette })
   const labels = useQuery({
     queryKey: ['labels', String(id)],
     queryFn: () => fetchLabels(String(id)),
@@ -223,6 +225,7 @@ export function ProjectDetailPage() {
           {(labels.data ?? []).map((label) => (
             <span key={label.id} className="chip" style={{ color: label.color, borderColor: label.color }}>
               {label.name}
+              {label.palette_name ? <span className="muted"> {label.palette_name}</span> : null}
             </span>
           ))}
         </div>
@@ -238,6 +241,19 @@ export function ProjectDetailPage() {
           <Field label="Color" error={form.formState.errors.color?.message}>
             <input type="color" {...form.register('color')} />
           </Field>
+          <div className="swatches wide">
+            {(palette.data ?? []).map((swatch) => (
+              <button
+                key={swatch.name}
+                type="button"
+                className="swatch"
+                style={{ background: swatch.hex }}
+                aria-label={swatch.name}
+                title={swatch.name}
+                onClick={() => form.setValue('color', swatch.hex, { shouldValidate: true })}
+              />
+            ))}
+          </div>
           <div className="wide">
             <button className="button button-ghost" type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? 'Adding…' : 'Add label'}

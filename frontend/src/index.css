@@ -449,6 +449,23 @@ input[type='color'] {
   background: white;
 }
 
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: pointer;
+  padding: 0;
+}
+
 .mono {
   font-family: var(--mono);
   font-size: 0.82rem;

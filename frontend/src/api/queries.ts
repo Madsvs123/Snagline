@@ -14,6 +14,7 @@ import type {
   Label,
   Milestone,
   Page,
+  PaletteColor,
   Project,
   SavedFilter,
   Status,
@@ -64,6 +65,11 @@ export async function fetchAreas(project?: string): Promise<Area[]> {
 export async function createArea(payload: { project: number; name: string; description?: string }): Promise<Area> {
   const { data } = await api.post<Area>('/areas/', payload)
   return data
+}
+
+export async function fetchLabelPalette(): Promise<PaletteColor[]> {
+  const { data } = await api.get<{ colors: PaletteColor[] }>('/label-palette/')
+  return data.colors
 }
 
 export async function fetchLabels(project?: string): Promise<Label[]> {

@@ -31,12 +31,18 @@ export type Area = {
   description: string
 }
 
+export type PaletteColor = {
+  name: string
+  hex: string
+}
+
 export type Label = {
   id: number
   project: number
   project_key: string
   name: string
   color: string
+  palette_name: string
 }
 
 export type Milestone = {
