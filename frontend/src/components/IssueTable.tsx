@@ -46,6 +46,7 @@ export function IssueTable({
           <Link to={`/issues/${row.original.id}`} className="issue-link">
             {row.original.title}
           </Link>
+          {row.original.has_duplicate_title ? <span className="muted">Duplicate title</span> : null}
         ),
       },
       {

@@ -17,6 +17,7 @@ import type {
   Project,
   SavedFilter,
   Status,
+  TitleMatch,
 } from './types'
 
 function cleanParams(params?: Record<string, string | number | undefined>): Record<string, string | number> {
@@ -101,6 +102,13 @@ export async function fetchIssues(filters: IssueFilters): Promise<Page<Issue>> {
 export async function fetchIssue(id: number): Promise<Issue> {
   const { data } = await api.get<Issue>(`/issues/${id}/`)
   return data
+}
+
+export async function checkIssueTitle(project: number, title: string): Promise<TitleMatch[]> {
+  const { data } = await api.get<{ matches: TitleMatch[] }>('/issues/title-check/', {
+    params: { project, title },
+  })
+  return data.matches
 }
 
 export async function createIssue(payload: IssueWrite): Promise<Issue> {

@@ -178,6 +178,20 @@ export function IssueDetailPage() {
                 </span>
               ))}
             </div>
+            {issue.duplicate_titles.length > 0 ? (
+              <p className="banner" role="status">
+                Another issue already uses this title:{' '}
+                {issue.duplicate_titles.map((match, index) => (
+                  <span key={match.id}>
+                    {index > 0 ? ', ' : null}
+                    <Link to={`/issues/${match.id}`}>
+                      {match.project_key}-{match.number}
+                    </Link>
+                  </span>
+                ))}
+                .
+              </p>
+            ) : null}
             {issue.body ? <p className="prose">{issue.body}</p> : <p className="muted">No description yet.</p>}
           </article>
           <IssueLinks issue={issue} />

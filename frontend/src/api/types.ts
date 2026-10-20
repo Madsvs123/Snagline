@@ -76,6 +76,13 @@ export type IssueLink = {
   created_at: string
 }
 
+export type TitleMatch = {
+  id: number
+  number: number
+  title: string
+  project_key: string
+}
+
 export type IssueLabel = {
   id: number
   name: string
@@ -99,6 +106,8 @@ export type Issue = {
   labels: IssueLabel[]
   reporter_name: string
   comment_count: number
+  has_duplicate_title: boolean
+  duplicate_titles: TitleMatch[]
   created_at: string
   updated_at: string
 }

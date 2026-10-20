@@ -2,15 +2,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { errorMessage } from '../api/client'
-import { createIssue, fetchAreas, fetchIssueTemplates, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
+import { checkIssueTitle, createIssue, fetchAreas, fetchIssueTemplates, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
 import type { Status, Severity } from '../api/types'
 import { Field } from '../components/Field'
 import { PageHeader } from '../components/PageHeader'
 import { SEVERITIES, STATUSES } from '../lib/constants'
+import { useDebounced } from '../lib/useDebounced'
 
 const schema = z.object({
   title: z.string().trim().min(3, 'Use at least 3 characters').max(200),
@@ -48,6 +49,13 @@ export function NewIssuePage() {
     },
   })
   const projectId = form.watch('project')
+  const title = form.watch('title')
+  const debouncedTitle = useDebounced(title.trim())
+  const duplicates = useQuery({
+    queryKey: ['title-check', projectId, debouncedTitle],
+    queryFn: () => checkIssueTitle(Number(projectId), debouncedTitle),
+    enabled: Boolean(projectId) && debouncedTitle.length >= 3,
+  })
   const previousProject = useRef(projectId)
 
   useEffect(() => {
@@ -107,6 +115,20 @@ export function NewIssuePage() {
         noValidate
       >
         {formError ? <p className="banner" role="alert">{formError}</p> : null}
+        {(duplicates.data ?? []).length > 0 ? (
+          <p className="banner wide" role="status">
+            This title is already used by{' '}
+            {duplicates.data?.map((match, index) => (
+              <span key={match.id}>
+                {index > 0 ? ', ' : null}
+                <Link to={`/issues/${match.id}`}>
+                  {match.project_key}-{match.number}
+                </Link>
+              </span>
+            ))}
+            . You can still file it.
+          </p>
+        ) : null}
         <Field label="Template" className="wide">
           <select
             value=""
