@@ -1,6 +1,8 @@
 from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -127,6 +129,35 @@ class IssueViewSet(viewsets.ModelViewSet):
                     f'{severity_labels.get(issue.severity, issue.severity)}'
                 ),
             )
+
+    @action(detail=False, methods=['post'], url_path='bulk-status')
+    def bulk_status(self, request):
+        raw_ids = request.data.get('ids')
+        status = request.data.get('status')
+        if not isinstance(raw_ids, list) or not raw_ids:
+            raise ValidationError({'ids': 'Choose at least one issue.'})
+        try:
+            ids = [int(value) for value in raw_ids]
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({'ids': 'Issue ids must be numbers.'}) from exc
+        if status not in Issue.Status.values:
+            raise ValidationError({'status': 'Choose a valid status.'})
+        status_labels = dict(Issue.Status.choices)
+        updated = []
+        for issue in self.get_queryset().filter(pk__in=ids):
+            if issue.status == status:
+                continue
+            previous = issue.status
+            issue.status = status
+            issue.save(update_fields=['status', 'updated_at'])
+            Activity.objects.create(
+                issue=issue,
+                actor=request.user,
+                kind='status_changed',
+                detail=f'{status_labels.get(previous, previous)} -> {status_labels.get(status, status)}',
+            )
+            updated.append(issue.id)
+        return Response({'updated': updated, 'status': status})
 
 
 class IssueLinkViewSet(viewsets.ModelViewSet):
