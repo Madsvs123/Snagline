@@ -1,3 +1,5 @@
+import re
+
 import django_filters
 from django.db.models import Q
 
@@ -5,6 +7,7 @@ from .models import Activity, Area, Comment, Issue, IssueLink, IssueTemplate, La
 
 
 class IssueFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method='filter_search')
     status = django_filters.CharFilter(field_name='status')
     severity = django_filters.CharFilter(field_name='severity')
     project = django_filters.NumberFilter(field_name='project_id')
@@ -14,7 +17,19 @@ class IssueFilter(django_filters.FilterSet):
 
     class Meta:
         model = Issue
-        fields = ['status', 'severity', 'project', 'milestone', 'label', 'area']
+        fields = ['search', 'status', 'severity', 'project', 'milestone', 'label', 'area']
+
+    def filter_search(self, queryset, name, value):
+        text = (value or '').strip()
+        if not text:
+            return queryset
+        query = Q(title__icontains=text) | Q(body__icontains=text) | Q(comments__body__icontains=text)
+        key_match = re.fullmatch(r'([A-Za-z][A-Za-z0-9]{1,11})-(\d+)', text)
+        if key_match:
+            query |= Q(project__key__iexact=key_match.group(1), number=int(key_match.group(2)))
+        elif text.isdigit():
+            query |= Q(number=int(text))
+        return queryset.filter(query).distinct()
 
 
 class IssueLinkFilter(django_filters.FilterSet):
