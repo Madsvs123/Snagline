@@ -156,9 +156,12 @@ export type StatusCounts = {
   total: number
 }
 
+export type SeverityCount = { severity: Severity; label: string; count: number }
+
 export type DashboardData = {
   counts: StatusCounts
-  by_severity: { severity: Severity; label: string; count: number }[]
+  by_severity: SeverityCount[]
+  open_by_severity: SeverityCount[]
   recent_issues: Issue[]
   recent_activity: ActivityItem[]
 }

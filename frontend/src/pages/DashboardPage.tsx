@@ -54,6 +54,17 @@ export function DashboardPage() {
           </Link>
         ))}
       </section>
+      <section>
+        <h2>Open work by severity</h2>
+        <div className="stats">
+          {data.open_by_severity.map((item) => (
+            <Link key={item.severity} to={`/issues?severity=${item.severity}`} className="stat">
+              <span>{item.label}</span>
+              <strong>{item.count}</strong>
+            </Link>
+          ))}
+        </div>
+      </section>
       <section className="split">
         <article className="card">
           <h2>Issues by severity</h2>

@@ -27,7 +27,7 @@ export function IssuesPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState(params.get('status') ?? '')
-  const [severity, setSeverity] = useState('')
+  const [severity, setSeverity] = useState(params.get('severity') ?? '')
   const [project, setProject] = useState(params.get('project') ?? '')
   const [area, setArea] = useState('')
   const [filterName, setFilterName] = useState('')
@@ -48,6 +48,7 @@ export function IssuesPage() {
   useEffect(() => {
     const next = new URLSearchParams(query)
     setStatus(next.get('status') ?? '')
+    setSeverity(next.get('severity') ?? '')
     setProject(next.get('project') ?? '')
   }, [query])
 
