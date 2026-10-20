@@ -122,28 +122,48 @@ class IssueViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        previous_status = serializer.instance.status
-        previous_severity = serializer.instance.severity
+        current = serializer.instance
+        previous_status = current.status
+        previous_severity = current.severity
+        previous_title = current.title
+        previous_body = current.body
+        previous_milestone_id = current.milestone_id
+        previous_area_id = current.area_id
+        previous_labels = set(current.labels.values_list('name', flat=True))
         issue = serializer.save()
+        actor = self.request.user
+
+        def record(kind, detail):
+            Activity.objects.create(issue=issue, actor=actor, kind=kind, detail=detail[:240])
+
         if issue.status != previous_status:
             status_labels = dict(Issue.Status.choices)
-            Activity.objects.create(
-                issue=issue,
-                actor=self.request.user,
-                kind='status_changed',
-                detail=f'{status_labels.get(previous_status, previous_status)} -> {status_labels.get(issue.status, issue.status)}',
+            record(
+                'status_changed',
+                f'{status_labels.get(previous_status, previous_status)} -> {status_labels.get(issue.status, issue.status)}',
             )
         if issue.severity != previous_severity:
             severity_labels = dict(Issue.Severity.choices)
-            Activity.objects.create(
-                issue=issue,
-                actor=self.request.user,
-                kind='severity_changed',
-                detail=(
+            record(
+                'severity_changed',
+                (
                     f'{severity_labels.get(previous_severity, previous_severity)} -> '
                     f'{severity_labels.get(issue.severity, issue.severity)}'
                 ),
             )
+        if issue.title != previous_title:
+            record('title_changed', f'Renamed from {previous_title}')
+        if issue.body != previous_body:
+            record('description_changed', 'Updated the description')
+        if issue.milestone_id != previous_milestone_id:
+            name = issue.milestone.name if issue.milestone_id else 'none'
+            record('milestone_changed', f'Milestone set to {name}')
+        if issue.area_id != previous_area_id:
+            name = issue.area.name if issue.area_id else 'none'
+            record('area_changed', f'Area set to {name}')
+        label_names = set(issue.labels.values_list('name', flat=True))
+        if label_names != previous_labels:
+            record('labels_changed', f"Labels set to {', '.join(sorted(label_names)) or 'none'}")
 
     @action(detail=False, methods=['post'], url_path='bulk-status')
     def bulk_status(self, request):
