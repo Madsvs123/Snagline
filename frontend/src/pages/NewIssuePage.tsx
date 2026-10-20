@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { errorMessage } from '../api/client'
-import { createIssue, fetchAreas, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
+import { createIssue, fetchAreas, fetchIssueTemplates, fetchLabels, fetchMilestones, fetchProjects } from '../api/queries'
 import type { Status, Severity } from '../api/types'
 import { Field } from '../components/Field'
 import { PageHeader } from '../components/PageHeader'
@@ -32,6 +32,7 @@ export function NewIssuePage() {
   const projects = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
   const labels = useQuery({ queryKey: ['labels'], queryFn: () => fetchLabels() })
   const areas = useQuery({ queryKey: ['areas'], queryFn: () => fetchAreas() })
+  const templates = useQuery({ queryKey: ['issue-templates'], queryFn: () => fetchIssueTemplates() })
   const milestones = useQuery({ queryKey: ['milestones'], queryFn: () => fetchMilestones() })
   const form = useForm<IssueFormValues>({
     resolver: zodResolver(schema),
@@ -75,6 +76,7 @@ export function NewIssuePage() {
     onError: (error) => setFormError(errorMessage(error)),
   })
 
+  const projectTemplates = (templates.data ?? []).filter((item) => String(item.project) === projectId)
   const projectLabels = (labels.data ?? []).filter((label) => String(label.project) === projectId)
   const projectAreas = (areas.data ?? []).filter((item) => String(item.project) === projectId)
   const projectMilestones = (milestones.data ?? []).filter(
@@ -105,6 +107,25 @@ export function NewIssuePage() {
         noValidate
       >
         {formError ? <p className="banner" role="alert">{formError}</p> : null}
+        <Field label="Template" className="wide">
+          <select
+            value=""
+            onChange={(event) => {
+              const template = projectTemplates.find((item) => String(item.id) === event.target.value)
+              if (!template) return
+              form.setValue('title', template.title, { shouldValidate: true })
+              form.setValue('body', template.body)
+              form.setValue('severity', template.severity)
+            }}
+          >
+            <option value="">Start from a template</option>
+            {projectTemplates.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Title" error={form.formState.errors.title?.message} className="wide">
           <input placeholder="Save button drops the draft" {...form.register('title')} />
         </Field>

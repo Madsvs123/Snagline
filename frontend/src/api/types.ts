@@ -51,6 +51,17 @@ export type Milestone = {
   created_at: string
 }
 
+export type IssueTemplate = {
+  id: number
+  project: number
+  project_key: string
+  name: string
+  title: string
+  body: string
+  severity: Severity
+  created_at: string
+}
+
 export type IssueLinkKind = 'blocks' | 'relates'
 
 export type IssueLink = {

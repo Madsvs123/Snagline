@@ -8,6 +8,7 @@ import type {
   IssueFilters,
   IssueLink,
   IssueLinkKind,
+  IssueTemplate,
   IssueWrite,
   Area,
   Label,
@@ -112,6 +113,25 @@ export async function updateIssue(id: number, payload: IssueWrite): Promise<Issu
 
 export async function deleteIssue(id: number): Promise<void> {
   await api.delete(`/issues/${id}/`)
+}
+
+export async function fetchIssueTemplates(project?: string): Promise<IssueTemplate[]> {
+  return fetchList<IssueTemplate>('/issue-templates/', { project })
+}
+
+export async function createIssueTemplate(payload: {
+  project: number
+  name: string
+  title: string
+  body?: string
+  severity: string
+}): Promise<IssueTemplate> {
+  const { data } = await api.post<IssueTemplate>('/issue-templates/', payload)
+  return data
+}
+
+export async function deleteIssueTemplate(id: number): Promise<void> {
+  await api.delete(`/issue-templates/${id}/`)
 }
 
 export async function fetchIssueLinks(issue: number): Promise<IssueLink[]> {
